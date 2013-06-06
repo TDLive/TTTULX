@@ -1,0 +1,11 @@
+"AddonInfo"
+{
+	"name"				"TTT commands"
+	"version"			"2.0.1"
+	"up_date"			"00/00/00"
+	"author_name"			"Bender180 and Skillz"
+	"author_email"			"theterrortownteam@gmail.com"
+	"author_url"			"http://www.bendersvilla.net/"
+	"info"				"Commands for the Terror Town Gamemode"
+	"override"			"0"
+}
