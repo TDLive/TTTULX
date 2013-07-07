@@ -27,7 +27,7 @@ function ulx.minply( calling_ply, players )
 		ulx.fancyLogAdmin( calling_ply, "#A set the minimum number of players to ".. players .."." )
 	end
 end
-local minply = ulx.command( CATEGORY_NAME, "ulx minimum players", ulx.minply )
+local minply = ulx.command( CATEGORY_NAME, "ulx minply", ulx.minply )
 minply:addParam{ type=ULib.cmds.NumArg, default=2, hint="minply", ULib.cmds.optional}
 minply:defaultAccess( ULib.ACCESS_SUPERADMIN )
 minply:help( "Sets the minimum number of players." )
@@ -46,9 +46,22 @@ function ulx.preventwin( calling_ply, should_prevwin )
 		end
 	end
 end
-local preventwin = ulx.command( CATEGORY_NAME, "ulx prevent win", ulx.preventwin )
+local preventwin = ulx.command( CATEGORY_NAME, "ulx prevwin", ulx.preventwin )
 preventwin:defaultAccess( ULib.ACCESS_SUPERADMIN )
 preventwin:addParam{ type=ULib.cmds.BoolArg, invisible=true }
-preventwin:setOpposite( "ulx allow win", {_, true} )
+preventwin:setOpposite( "ulx allowwin", {_, true} )
 preventwin:help( "Toggles the prevention of winning." )
+---[End]----------------------------------------------------------------------------------------
+
+
+---[Round Restart]-------------------------------------------------------------------------
+function ulx.roundrestart( calling_ply )
+	if not GetConVarString("gamemode") == "terrortown" then ULib.tsayError( calling_ply, gamemode_error, true ) else
+		ULib.consoleCommand( "ttt_roundrestart" .. "\n" )
+		ulx.fancyLogAdmin( calling_ply, "#A has restarted the round." )
+	end
+end
+local restartround = ulx.command( CATEGORY_NAME, "ulx roundrestart", ulx.roundrestart )
+restartround:defaultAccess( ULib.ACCESS_SUPERADMIN )
+restartround:help( "Restarts the round." )
 ---[End]----------------------------------------------------------------------------------------

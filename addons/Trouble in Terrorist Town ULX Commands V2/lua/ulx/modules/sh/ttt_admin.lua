@@ -68,8 +68,158 @@ function corpse_remove(corpse)
 		corpse:Remove()
 	end
 end
+
+--[[corpse_identify][identifies the given corpse.]
+@param  {[Ragdoll]} corpse [The corpse to be identified.]
+--]]
+function corpse_identify(corpse)
+	if corpse then
+		local ply = player.GetByUniqueID(corpse.uqid)
+		ply:SetNWBool("body_found", true)
+		CORPSE.SetFound(corpse, true)
+	end
+end
 --[End]----------------------------------------------------------------------------------------
 
+
+
+
+--[Force role]---------------------------------------------------------------------------------
+--[[ulx.force][Forces <target(s)> to become a specified role.]
+@param  {[PlayerObject]} calling_ply   [The player who used the command.]
+@param  {[PlayerObject]} target_plys   [The player(s) who will have the effects of the command applied to them.]
+@param  {[Number]}       target_role   [The role that target player(s) will have there role set to.]
+@param  {[Boolean]}      should_silent [Hidden, determines weather the output will be silent or not.]
+--]]
+function ulx.slaynr( calling_ply, target_ply, num_slay, should_slaynr )
+	if not GetConVarString("gamemode") == "terrortown" then ULib.tsayError( calling_ply, gamemode_error, true ) else
+		local affected_plys = {}
+		local slays_left = tonumber(target_ply:GetPData("slaynr_slays")) or 0
+		local current_slay
+		local new_slay
+	    
+	
+		if ulx.getExclusive( target_ply, calling_ply ) then
+			ULib.tsayError( calling_ply, ulx.getExclusive( target_ply, calling_ply ), true )
+		elseif num_slay < 0 then
+			ULib.tsayError( calling_ply, "Invalid integer:\"" .. num_slay .. "\" specified.", true )
+		else
+			current_slay = tonumber(target_ply:GetPData("slaynr_slays")) or 0
+			if not should_slaynr then 	
+                new_slay = current_slay + num_slay  
+            else
+                new_slay = current_slay - num_slay	
+            end
+
+            --local slay_reason = reason
+            --if slay_reason == "reason" then
+            --	slay_reason = false
+            --end
+
+			if new_slay > 0 then 		
+                target_ply:SetPData("slaynr_slays", new_slay)
+                --target_ply:SetPData("slaynr_reason", slay_reason) 
+            else
+				target_ply:RemovePData("slaynr_slays")
+                --target_ply:RemovePData("slaynr_reason")   
+            end
+
+	    	local slays_left 	= tonumber(target_ply:GetPData("slaynr_slays"))  or 0
+			local slays_removed = ( current_slay - slays_left ) 		or 0
+
+			if slays_removed==0 then
+				chat_message = ("#T will not be slain next round.")
+			elseif slays_removed > 0 then
+				chat_message = ("#A removed ".. slays_removed .." round(s) of slaying from #T.")
+			elseif slays_left == 1 then
+				chat_message = ("#A will slay #T next round.")
+			elseif slays_left > 1 then
+				chat_message = ("#A will slay #T for the next ".. tostring(slays_left) .." rounds.")
+			end
+			ulx.fancyLogAdmin( calling_ply, chat_message, target_ply, reason )
+		end
+	end
+end
+local slaynr = ulx.command( CATEGORY_NAME, "ulx slaynr", ulx.slaynr, "!slaynr" )
+slaynr:addParam{ type=ULib.cmds.PlayerArg }
+slaynr:addParam{ type=ULib.cmds.NumArg, default=1, hint="rounds", ULib.cmds.optional, ULib.cmds.round }
+--slaynr:addParam{ type=ULib.cmds.StringArg, hint="reason",  ULib.cmds.optional}
+slaynr:addParam{ type=ULib.cmds.BoolArg, invisible=true }
+slaynr:defaultAccess( ULib.ACCESS_ADMIN )
+slaynr:help( "Slays target(s) for a number of rounds" )
+slaynr:setOpposite( "ulx rslaynr", {_, _, _, true}, "!rslaynr" )
+--[Helper Functions]---------------------------------------------------------------------------
+hook.Add("TTTBeginRound", "SlayPlayersNextRound", function()
+	local affected_plys = {}
+
+	for _,v in pairs(player.GetAll()) do
+		local slays_left = tonumber(v:GetPData("slaynr_slays")) or 0
+        
+		if v:Alive() and slays_left > 0 then
+			local slays_left=slays_left -1
+
+			if slays_left == 0 then	
+                v:RemovePData("slaynr_slays")
+                v:RemovePData("slaynr_reason")
+			else 					
+                v:SetPData("slaynr_slays", slays_left) 
+            end
+
+			v:Kill()
+			table.insert( affected_plys, v )
+			local corpse = corpse_find(v)
+			if corpse then
+				corpse_identify(corpse)
+				corpse_remove(corpse)
+			end
+		end
+	end
+
+	local slay_message
+	for i=1, #affected_plys do
+		local v = affected_plys[ i ]
+		local string_inbetween
+
+		if i > 1 and #affected_plys == i then
+			string_inbetween=" and "
+		elseif i > 1 then
+			string_inbetween=", "
+		end
+
+		string_inbetween = string_inbetween or ""
+		slay_message = ( ( slay_message or "") .. string_inbetween )
+		slay_message = ( ( slay_message or "") .. v:Nick() )
+	end
+
+	local slay_message_context
+	if #affected_plys == 1 then slay_message_context ="was" else slay_message_context ="were" end
+	if #affected_plys ~= 0 then
+		ULib.tsay(_, slay_message .. " ".. slay_message_context .." slain.")
+	end
+end)
+
+hook.Add("PlayerSpawn", "Inform" , function(ply)
+	local slays_left = tonumber(ply:GetPData("slaynr_slays")) or 0
+	local slay_reason = false
+        
+	if ply:Alive() and slays_left > 0 then
+		local chat_message = ""
+
+		if slays_left > 0 then
+			chat_message = (chat_message .. "You will be slain this round")
+		end
+		if slays_left > 1 then
+			chat_message = (chat_message .. " and ".. (slays_left - 1) .." round(s) after the current round")
+		end
+		if slay_reason then
+			chat_message = (chat_message .. " for \"".. slays_reason .."\".")
+		else
+			chat_message = (chat_message .. ".")
+		end
+		ply:ChatPrint(chat_message)
+	end
+end)
+--[End]----------------------------------------------------------------------------------------
 
 
 --[Force role]---------------------------------------------------------------------------------
@@ -90,9 +240,9 @@ function ulx.force( calling_ply, target_plys, target_role, should_silent )
 		local role_string
 		local role_credits
 
-	    if target_role ==  "traitor"   or target_role == "t" then role = ROLE_TRAITOR;   role_grammar="a ";  role_string = "traitor"   role_credits = starting_credits end
-	    if target_role ==  "detective" or target_role == "d" then role = ROLE_DETECTIVE; role_grammar="a ";  role_string = "detective" role_credits = starting_credits end
-	    if target_role ==  "innocent"  or target_role == "i" then role = ROLE_INNOCENT;  role_grammar="an "; role_string = "innocent"  role_credits = 0                end
+	    if target_role ==  "traitor"   or target_role == "t" then role, role_grammar, role_string, role_credits = ROLE_TRAITOR,   "a ",  "traitor",   starting_credits end
+	    if target_role ==  "detective" or target_role == "d" then role, role_grammar, role_string, role_credits = ROLE_DETECTIVE, "a ",  "detective", starting_credits end
+	    if target_role ==  "innocent"  or target_role == "i" then role, role_grammar, role_string, role_credits = ROLE_INNOCENT,  "an ", "innocent",  0                end
 	    
 	    for i=1, #target_plys do
 			local v = target_plys[ i ]
@@ -253,7 +403,7 @@ local respawn = ulx.command( CATEGORY_NAME, "ulx respawn", ulx.respawn, "!respaw
 respawn:addParam{ type=ULib.cmds.PlayersArg }
 respawn:addParam{ type=ULib.cmds.BoolArg, invisible=true }
 respawn:defaultAccess( ULib.ACCESS_SUPERADMIN )
-respawn:setOpposite( "ulx silent respawn", {_, _, true}, "!srespawn", true )
+respawn:setOpposite( "ulx srespawn", {_, _, true}, "!srespawn", true )
 respawn:help( "Respawns <target(s)>." )
 --[End]----------------------------------------------------------------------------------------
 
@@ -307,7 +457,7 @@ local respawntp = ulx.command( CATEGORY_NAME, "ulx respawntp", ulx.respawntp, "!
 respawntp:addParam{ type=ULib.cmds.PlayerArg }
 respawntp:addParam{ type=ULib.cmds.BoolArg, invisible=true }
 respawntp:defaultAccess( ULib.ACCESS_SUPERADMIN )
-respawntp:setOpposite( "ulx silent respawntp", {_, _, true}, "!srespawntp", true )
+respawntp:setOpposite( "ulx srespawntp", {_, _, true}, "!srespawntp", true )
 respawntp:help( "Respawns <target> to a specific location." )
 --[End]----------------------------------------------------------------------------------------
 
@@ -362,10 +512,100 @@ function ulx.tttspec( calling_ply, target_plys, should_unspec )
 	   	end
 	end
 end
-local tttspec = ulx.command( CATEGORY_NAME, "ulx spec", ulx.tttspec, "!fspec" )
+local tttspec = ulx.command( CATEGORY_NAME, "ulx fspec", ulx.tttspec, "!fspec" )
 tttspec:addParam{ type=ULib.cmds.PlayersArg }
 tttspec:addParam{ type=ULib.cmds.BoolArg, invisible=true }
 tttspec:defaultAccess( ULib.ACCESS_ADMIN )
 tttspec:setOpposite( "ulx unspec", {_, _, true}, "!unspec" )
 tttspec:help( "Forces the <target(s)> to/from spectator." )
 --[End]----------------------------------------------------------------------------------------
+
+------------------------------ Next Round  ------------------------------
+ulx.next_round = {}
+local function updateNextround()
+	table.Empty( ulx.next_round ) -- Don't reassign so we don't lose our refs
+    
+    table.insert(ulx.next_round,"traitor") -- Add "traitor" to the table.
+    table.insert(ulx.next_round,"detective") -- Add "detective" to the table.	
+    table.insert(ulx.next_round,"unmark") -- Add "unmark" to the table.
+
+end
+hook.Add( ULib.HOOK_UCLCHANGED, "ULXNextRoundUpdate", updateNextround )
+updateNextround() -- Init
+
+
+local PlysMarkedForTraitor = {}
+local PlysMarkedForDetective = {}
+function ulx.nextround( calling_ply, target_plys, next_round )
+    local affected_plys = {}
+	local unaffected_plys = {}
+    for i=1, #target_plys do
+        local v = target_plys[ i ]
+        local ID = v:UniqueID()
+        
+        if next_round == "traitor" then
+            if PlysMarkedForTraitor[ID] == true or PlysMarkedForDetective[ID] == true then
+                ULib.tsayError( calling_ply, "that player is already marked for the next round", true )
+            else
+                PlysMarkedForTraitor[ID] = true
+                table.insert( affected_plys, v ) 
+            end
+        end
+        if next_round == "detective" then
+            if PlysMarkedForTraitor[ID] == true or PlysMarkedForDetective[ID] == true then
+                ULib.tsayError( calling_ply, "that player is already marked for the next round!", true )
+            else
+                PlysMarkedForDetective[ID] = true
+                table.insert( affected_plys, v ) 
+            end
+        end
+        if next_round == "unmark" then
+            if PlysMarkedForTraitor[ID] == true then
+                PlysMarkedForTraitor[ID] = false
+                table.insert( affected_plys, v )
+            end
+            if PlysMarkedForDetective[ID] == true then
+                PlysMarkedForDetective[ID] = false
+                table.insert( affected_plys, v )
+            end
+        end
+    end    
+        
+    if next_round == "unmark" then
+        ulx.fancyLogAdmin( calling_ply, true, "#A has unmarked #T ", affected_plys )
+    else
+        ulx.fancyLogAdmin( calling_ply, true, "#A marked #T to be #s next round.", affected_plys, next_round )
+    end
+end        
+local nxtr= ulx.command( CATEGORY_NAME, "ulx forcenr", ulx.nextround, "!nr" )
+nxtr:addParam{ type=ULib.cmds.PlayersArg }
+nxtr:addParam{ type=ULib.cmds.StringArg, completes=ulx.next_round, hint="Next Round", error="invalid role \"%s\" specified", ULib.cmds.restrictToCompletes }
+nxtr:defaultAccess( ULib.ACCESS_SUPERADMIN )
+nxtr:help( "Forces the target to be a detective/traitor in the following round." )
+
+local function TraitorMarkedPlayers()
+	for k, v in pairs(PlysMarkedForTraitor) do
+		if v then
+			ply = player.GetByUniqueID(k)
+			ply:SetRole(ROLE_TRAITOR)
+            ply:AddCredits(GetConVarNumber("ttt_credits_starting"))
+			ply:ChatPrint("You have been made a traitor by an admin this round.")
+			PlysMarkedForTraitor[k] = false
+		end
+	end
+end
+hook.Add("TTTBeginRound", "Admin_Round_Traitor", TraitorMarkedPlayers)
+
+local function DetectiveMarkedPlayers()
+	for k, v in pairs(PlysMarkedForDetective) do
+		if v then
+			ply = player.GetByUniqueID(k)
+			ply:SetRole(ROLE_DETECTIVE)
+            ply:AddCredits(GetConVarNumber("ttt_credits_starting"))
+            ply:Give("weapon_ttt_wtester")
+			ply:ChatPrint("You have been made a detective by an admin this round.")
+			PlysMarkedForDetective[k] = false
+		end
+	end
+end
+hook.Add("TTTBeginRound", "Admin_Round_Detective", DetectiveMarkedPlayers)
