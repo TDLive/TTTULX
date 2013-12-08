@@ -82,7 +82,7 @@ end
 
 function adminsOnline()
 	for k, v in pairs(player.GetAll()) do
-		if ply:IsUserGroup("admin") or ply:IsUserGroup("moderator") or ply:IsUserGroup("manager") or ply:IsUserGroup("director") then
+		if ply:IsUserGroup("admin") or ply:IsUserGroup("moderator") or ply:IsUserGroup("developer") or ply:IsUserGroup("manager") or ply:IsUserGroup("director") then
 			return true;
 		end
 	end
@@ -92,7 +92,7 @@ end
 function allow_command(ply)
 	if ply:IsUserGroup("trusted") and not adminsOnline() then
 		return true
-	else if ply:IsUserGroup("admin") or ply:IsUserGroup("moderator") or ply:IsUserGroup("manager") or ply:IsUserGroup("director") then
+	else if ply:IsUserGroup("admin") or ply:IsUserGroup("moderator") or ply:IsUserGroup("developer") or ply:IsUserGroup("manager") or ply:IsUserGroup("director") then
 		return true
 	else
 		return false
