@@ -89,7 +89,7 @@ function adminsOnline()
 	return false;
 end
 
-function allow_slaynr(ply)
+function allow_command(ply)
 	if ply:IsUserGroup("trusted") and not adminsOnline() then
 		return true
 	else if ply:IsUserGroup("admin") or ply:IsUserGroup("moderator") or ply:IsUserGroup("manager") or ply:IsUserGroup("director") then
@@ -113,7 +113,7 @@ end
 --]]
 function ulx.slaynr( calling_ply, target_ply, num_slay, should_slaynr )
 	if not GetConVarString("gamemode") == "terrortown" then ULib.tsayError( calling_ply, gamemode_error, true ) else
-	if not allow_slaynr(calling_ply) then ULib.tsayError("You cannot execute this command while a server administrator is online.")
+	if not allow_command(calling_ply) then ULib.tsayError("You cannot execute this command while a server administrator is online."); return; end;
 		local affected_plys = {}
 		local slays_left = tonumber(target_ply:GetPData("slaynr_slays")) or 0
 		local current_slay
