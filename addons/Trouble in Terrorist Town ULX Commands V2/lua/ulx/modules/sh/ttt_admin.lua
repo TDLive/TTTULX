@@ -79,6 +79,26 @@ function corpse_identify(corpse)
 		CORPSE.SetFound(corpse, true)
 	end
 end
+
+function adminsOnline()
+	for k, v in pairs(player.GetAll()) do
+		if ply:IsUserGroup("admin") or ply:IsUserGroup("moderator") or ply:IsUserGroup("manager") or ply:IsUserGroup("director") then
+			return true;
+		end
+	end
+	return false;
+end
+
+function allow_slaynr(ply)
+	if ply:IsUserGroup("trusted") and not adminsOnline() then
+		return true
+	else if ply:IsUserGroup("admin") or ply:IsUserGroup("moderator") or ply:IsUserGroup("manager") or ply:IsUserGroup("director") then
+		return true
+	else
+		return false
+	end
+end
+
 --[End]----------------------------------------------------------------------------------------
 
 
@@ -93,6 +113,7 @@ end
 --]]
 function ulx.slaynr( calling_ply, target_ply, num_slay, should_slaynr )
 	if not GetConVarString("gamemode") == "terrortown" then ULib.tsayError( calling_ply, gamemode_error, true ) else
+	if not allow_slaynr(calling_ply) then ULib.tsayError("You cannot execute this command while a server administrator is online.")
 		local affected_plys = {}
 		local slays_left = tonumber(target_ply:GetPData("slaynr_slays")) or 0
 		local current_slay
